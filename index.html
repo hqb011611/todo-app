@@ -2,8 +2,19 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Todo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Todo - 待办事项</title>
+
+<!-- PWA Meta -->
+<meta name="theme-color" content="#6c5ce7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Todo">
+<meta name="application-name" content="Todo">
+<meta name="description" content="一个简洁优雅的待办事项管理应用">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icon-192.svg">
+<link rel="apple-touch-icon" href="icon-192.svg">
 <style>
   :root {
     --accent: #6c5ce7;
@@ -594,6 +605,81 @@
     .todo-time { display: none; }
     .header h1 { font-size: 28px; }
   }
+
+  /* ---- 安装按钮 ---- */
+  .install-bar {
+    display: none;
+    justify-content: center;
+    padding: 0;
+    animation: installSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .install-bar.visible {
+    display: flex;
+  }
+
+  @keyframes installSlideIn {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .install-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: var(--card-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--accent-light);
+    border-radius: 28px;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 16px var(--accent-glow);
+  }
+
+  .install-btn:hover {
+    background: var(--accent);
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--accent-glow);
+  }
+
+  .install-btn:active {
+    transform: scale(0.95);
+    transition: transform 0.1s;
+  }
+
+  .install-btn svg {
+    width: 18px; height: 18px;
+  }
+
+  /* ---- 更新提示 ---- */
+  .update-toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2d3436;
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 24px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 1000;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    animation: updateToastIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+  }
+
+  @keyframes updateToastIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
 </style>
 </head>
 <body>
@@ -607,6 +693,17 @@
   <div class="header">
     <h1>Todo</h1>
     <div class="date" id="dateLabel"></div>
+  </div>
+
+  <div class="install-bar" id="installBar">
+    <button class="install-btn" id="installBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      添加到桌面
+    </button>
   </div>
 
   <div class="progress-section" id="progressSection">
@@ -955,6 +1052,85 @@
   // 启动
   loadTodos();
   render();
+
+  // ===== PWA =====
+  let deferredPrompt = null;
+  const installBar = document.getElementById('installBar');
+  const installBtn = document.getElementById('installBtn');
+
+  // 注册 Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      // 检测新版本
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdateToast();
+          }
+        });
+      });
+    }).catch(() => {
+      // SW 注册失败，应用仍可正常使用
+    });
+
+    // 检测 SW 更新就绪
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+  }
+
+  function showUpdateToast() {
+    const t = document.createElement('div');
+    t.className = 'update-toast';
+    t.textContent = '有新版本可用，点击更新';
+    t.addEventListener('click', () => {
+      t.remove();
+      const sw = navigator.serviceWorker?.controller;
+      if (sw) {
+        navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+      }
+      // 通知 SW 跳过等待
+      navigator.serviceWorker.ready.then(r => r.waiting?.postMessage({ type: 'SKIP_WAITING' }));
+    });
+    document.body.appendChild(t);
+    setTimeout(() => { if (t.parentNode) t.remove(); }, 12000);
+  }
+
+  // 处理 PWA 安装事件
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    // 延迟显示，让页面先渲染
+    setTimeout(() => { installBar.classList.add('visible'); }, 2000);
+  });
+
+  // 安装按钮点击
+  installBtn.addEventListener('click', () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(result => {
+      installBar.classList.remove('visible');
+      deferredPrompt = null;
+      if (result.outcome === 'accepted') {
+        showToast('安装成功！');
+      }
+    });
+  });
+
+  // 已安装后隐藏按钮
+  window.addEventListener('appinstalled', () => {
+    installBar.classList.remove('visible');
+    deferredPrompt = null;
+  });
+
+  // 如果已经在 standalone 模式下运行，隐藏安装按钮
+  if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
+    installBar.classList.remove('visible');
+  }
 </script>
 
 </body>
