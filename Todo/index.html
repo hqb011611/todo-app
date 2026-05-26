@@ -104,6 +104,7 @@
   .header {
     text-align: center;
     margin-bottom: 4px;
+    position: relative;
   }
 
   .header h1 {
@@ -120,6 +121,35 @@
     font-size: 13px;
     color: #999;
     margin-top: 2px;
+  }
+
+  .settings-btn {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
+  .settings-btn:hover {
+    transform: translateY(-50%) rotate(60deg);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  }
+
+  .settings-btn:active {
+    transform: translateY(-50%) scale(0.9);
   }
 
   /* ---- 进度环 ---- */
@@ -680,6 +710,161 @@
     from { opacity: 0; transform: translateX(-50%) translateY(16px); }
     to   { opacity: 1; transform: translateX(-50%) translateY(0); }
   }
+
+  /* ---- 主题面板 ---- */
+  .theme-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1001;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: overlayIn 0.3s ease;
+  }
+
+  @keyframes overlayIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  .theme-panel {
+    width: 100%;
+    max-width: 500px;
+    background: #fff;
+    border-radius: 24px 24px 0 0;
+    padding: 24px 20px 36px;
+    animation: panelSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  @keyframes panelSlideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+
+  .theme-panel h3 {
+    text-align: center;
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+
+  .theme-panel .section-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #aaa;
+    margin: 18px 0 10px;
+  }
+
+  .preset-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .preset-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 14px;
+    border: 2px solid transparent;
+    transition: all 0.25s;
+    background: #f8f8f8;
+  }
+
+  .preset-item:hover {
+    background: #f0f0f0;
+    transform: translateY(-2px);
+  }
+
+  .preset-item.active {
+    border-color: var(--accent);
+    background: rgba(108, 92, 231, 0.06);
+  }
+
+  .preset-circle {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.12);
+  }
+
+  .preset-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: #777;
+    text-align: center;
+  }
+
+  .color-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .color-row label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    min-width: 48px;
+  }
+
+  .color-row input[type="color"] {
+    width: 36px; height: 36px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    cursor: pointer;
+    padding: 2px;
+    background: transparent;
+  }
+
+  .color-row input[type="color"]:hover {
+    border-color: var(--accent);
+  }
+
+  .theme-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .theme-actions button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.25s;
+  }
+
+  .theme-actions .btn-reset {
+    background: #f0f0f0;
+    color: #888;
+  }
+
+  .theme-actions .btn-reset:hover {
+    background: #e0e0e0;
+    color: #555;
+  }
+
+  .theme-actions .btn-close {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .theme-actions .btn-close:hover {
+    filter: brightness(1.1);
+  }
 </style>
 </head>
 <body>
@@ -693,6 +878,7 @@
   <div class="header">
     <h1>Todo</h1>
     <div class="date" id="dateLabel"></div>
+    <button class="settings-btn" id="settingsBtn" title="主题设置">⚙</button>
   </div>
 
   <div class="install-bar" id="installBar">
@@ -1131,7 +1317,225 @@
   if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
     installBar.classList.remove('visible');
   }
+  // ===== 主题系统 =====
+  const THEME_KEY = 'todo_app_theme';
+  const DEFAULT_THEME = {
+    name: 'purple',
+    bg1: '#e8e0f0', bg2: '#dfe6fd', bg3: '#e0f0f8', bg4: '#f0e6f6',
+    accent: '#6c5ce7',
+    orb1: '#a29bfe', orb2: '#81ecec', orb3: '#fdceb9',
+  };
+
+  const PRESETS = {
+    purple:  { bg1:'#e8e0f0', bg2:'#dfe6fd', bg3:'#e0f0f8', bg4:'#f0e6f6', accent:'#6c5ce7', orb1:'#a29bfe', orb2:'#81ecec', orb3:'#fdceb9' },
+    ocean:   { bg1:'#dfe6f6', bg2:'#c8ddf8', bg3:'#d4ecfa', bg4:'#e8f4f8', accent:'#0984e3', orb1:'#74b9ff', orb2:'#a3d5ff', orb3:'#c8e9ff' },
+    sunset:  { bg1:'#f8e8e0', bg2:'#fadfcf', bg3:'#fce4d6', bg4:'#fef0e8', accent:'#e17055', orb1:'#fab1a0', orb2:'#ffc8b8', orb3:'#ffe0d4' },
+    forest:  { bg1:'#e0f0e8', bg2:'#d4e8dc', bg3:'#dcf0e4', bg4:'#e8f4ec', accent:'#55a177', orb1:'#a8e6cf', orb2:'#b8ecd8', orb3:'#d0f2e4' },
+    dark:    { bg1:'#2d3236', bg2:'#363b40', bg3:'#2f3438', bg4:'#3a3f44', accent:'#b2bec3', orb1:'#636e72', orb2:'#535c60', orb3:'#747d82' },
+    pink:    { bg1:'#f8e4ec', bg2:'#fce4f0', bg3:'#fde8f4', bg4:'#fef0f6', accent:'#e84393', orb1:'#fd79a8', orb2:'#f8a5c8', orb3:'#fcc8dc' },
+    warm:    { bg1:'#fef8e8', bg2:'#fff4d4', bg3:'#fef0c8', bg4:'#fff8e0', accent:'#f39c12', orb1:'#ffeaa7', orb2:'#fdcb6e', orb3:'#fad390' },
+    mint:    { bg1:'#e0f8f4', bg2:'#d4f4ec', bg3:'#dcf8f0', bg4:'#e8fcf8', accent:'#00b894', orb1:'#81ecec', orb2:'#a0f0f0', orb3:'#c0f8f8' },
+  };
+
+  // DOM
+  const settingsBtn   = document.getElementById('settingsBtn');
+  const themeOverlay  = document.getElementById('themeOverlay');
+  const btnCloseTheme = document.getElementById('btnCloseTheme');
+  const btnReset      = document.getElementById('btnReset');
+  const presetGrid    = document.getElementById('presetGrid');
+  const colorBg1      = document.getElementById('colorBg1');
+  const colorBg2      = document.getElementById('colorBg2');
+  const colorBg3      = document.getElementById('colorBg3');
+  const colorBg4      = document.getElementById('colorBg4');
+  const colorAccent   = document.getElementById('colorAccent');
+
+  let currentTheme = { ...DEFAULT_THEME };
+
+  function loadTheme() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(THEME_KEY));
+      if (saved) currentTheme = { ...DEFAULT_THEME, ...saved };
+    } catch { currentTheme = { ...DEFAULT_THEME }; }
+  }
+
+  function saveTheme() {
+    localStorage.setItem(THEME_KEY, JSON.stringify(currentTheme));
+  }
+
+  function applyTheme(t) {
+    const root = document.documentElement;
+    const body = document.body;
+
+    // 背景渐变
+    body.style.background = `linear-gradient(135deg, ${t.bg1} 0%, ${t.bg2} 30%, ${t.bg3} 60%, ${t.bg4} 100%)`;
+
+    // Accent 及相关颜色
+    root.style.setProperty('--accent', t.accent);
+    root.style.setProperty('--accent-light', t.accent + 'cc');
+    root.style.setProperty('--accent-glow', t.accent + '4d');
+
+    // 背景光球
+    const orbs = document.querySelectorAll('.bg-orb');
+    if (orbs[0]) orbs[0].style.background = t.orb1;
+    if (orbs[1]) orbs[1].style.background = t.orb2;
+    if (orbs[2]) orbs[2].style.background = t.orb3;
+
+    // 暗色主题适配
+    if (t.name === 'dark') {
+      root.style.setProperty('--card-bg', 'rgba(50,55,60,0.9)');
+      root.style.setProperty('--card-border', 'rgba(255,255,255,0.1)');
+      root.style.setProperty('--text', '#e0e0e0');
+      root.style.setProperty('--text-secondary', '#999');
+      body.style.color = '#e0e0e0';
+    } else {
+      root.style.setProperty('--card-bg', 'rgba(255,255,255,0.85)');
+      root.style.setProperty('--card-border', 'rgba(255,255,255,0.6)');
+      root.style.setProperty('--text', '#2d3436');
+      root.style.setProperty('--text-secondary', '#888');
+      body.style.color = '';
+    }
+
+    // 更新面板颜色选择器
+    colorBg1.value = t.bg1;
+    colorBg2.value = t.bg2;
+    colorBg3.value = t.bg3;
+    colorBg4.value = t.bg4;
+    colorAccent.value = t.accent;
+
+    // 更新预设激活状态
+    document.querySelectorAll('.preset-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.preset === t.name);
+    });
+  }
+
+  function updateFromCustom() {
+    currentTheme.name = 'custom';
+    currentTheme.bg1 = colorBg1.value;
+    currentTheme.bg2 = colorBg2.value;
+    currentTheme.bg3 = colorBg3.value;
+    currentTheme.bg4 = colorBg4.value;
+    currentTheme.accent = colorAccent.value;
+    currentTheme.orb1 = colorAccent.value + 'cc';
+    currentTheme.orb2 = colorBg2.value;
+    currentTheme.orb3 = colorBg3.value;
+    applyTheme(currentTheme);
+    saveTheme();
+  }
+
+  // 事件
+  settingsBtn.addEventListener('click', () => {
+    themeOverlay.style.display = 'flex';
+  });
+
+  btnCloseTheme.addEventListener('click', () => {
+    themeOverlay.style.display = 'none';
+  });
+
+  themeOverlay.addEventListener('click', (e) => {
+    if (e.target === themeOverlay) themeOverlay.style.display = 'none';
+  });
+
+  btnReset.addEventListener('click', () => {
+    currentTheme = { ...DEFAULT_THEME };
+    applyTheme(currentTheme);
+    saveTheme();
+    showToast('已恢复默认主题');
+  });
+
+  // 预设点击
+  presetGrid.addEventListener('click', (e) => {
+    const item = e.target.closest('.preset-item');
+    if (!item) return;
+    const name = item.dataset.preset;
+    if (PRESETS[name]) {
+      currentTheme = { name, ...PRESETS[name] };
+      applyTheme(currentTheme);
+      saveTheme();
+    }
+  });
+
+  // 自定义颜色变化（实时预览）
+  [colorBg1, colorBg2, colorBg3, colorBg4, colorAccent].forEach(input => {
+    input.addEventListener('input', updateFromCustom);
+  });
+
+  // 加载并应用主题
+  loadTheme();
+  applyTheme(currentTheme);
 </script>
+
+<!-- 主题面板 -->
+<div class="theme-overlay" id="themeOverlay" style="display:none">
+  <div class="theme-panel">
+    <h3>自定义主题</h3>
+
+    <div class="section-label">预设主题</div>
+    <div class="preset-grid" id="presetGrid">
+      <div class="preset-item active" data-preset="purple">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7)"></div>
+        <span class="preset-name">紫罗兰</span>
+      </div>
+      <div class="preset-item" data-preset="ocean">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#74b9ff,#0984e3)"></div>
+        <span class="preset-name">海洋蓝</span>
+      </div>
+      <div class="preset-item" data-preset="sunset">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#fab1a0,#e17055)"></div>
+        <span class="preset-name">日落橙</span>
+      </div>
+      <div class="preset-item" data-preset="forest">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#a8e6cf,#55a177)"></div>
+        <span class="preset-name">森林绿</span>
+      </div>
+      <div class="preset-item" data-preset="dark">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#636e72,#2d3436)"></div>
+        <span class="preset-name">暗夜灰</span>
+      </div>
+      <div class="preset-item" data-preset="pink">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#fd79a8,#e84393)"></div>
+        <span class="preset-name">樱花粉</span>
+      </div>
+      <div class="preset-item" data-preset="warm">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#ffeaa7,#fdcb6e)"></div>
+        <span class="preset-name">暖阳黄</span>
+      </div>
+      <div class="preset-item" data-preset="mint">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#81ecec,#00cec9)"></div>
+        <span class="preset-name">薄荷青</span>
+      </div>
+    </div>
+
+    <div class="section-label">自定义颜色</div>
+    <div class="color-row">
+      <label>背景色1</label>
+      <input type="color" id="colorBg1" value="#e8e0f0">
+      <span style="font-size:12px;color:#999">左上渐变</span>
+    </div>
+    <div class="color-row">
+      <label>背景色2</label>
+      <input type="color" id="colorBg2" value="#dfe6fd">
+    </div>
+    <div class="color-row">
+      <label>背景色3</label>
+      <input type="color" id="colorBg3" value="#e0f0f8">
+    </div>
+    <div class="color-row">
+      <label>背景色4</label>
+      <input type="color" id="colorBg4" value="#f0e6f6">
+      <span style="font-size:12px;color:#999">右下渐变</span>
+    </div>
+    <div class="color-row">
+      <label>强调色</label>
+      <input type="color" id="colorAccent" value="#6c5ce7">
+      <span style="font-size:12px;color:#666">按钮、选中等</span>
+    </div>
+
+    <div class="theme-actions">
+      <button class="btn-reset" id="btnReset">恢复默认</button>
+      <button class="btn-close" id="btnCloseTheme">完成</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
