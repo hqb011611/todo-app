@@ -744,6 +744,19 @@
     to   { transform: translateY(0); }
   }
 
+  @keyframes panelSlideDown {
+    from { transform: translateY(0); }
+    to   { transform: translateY(100%); }
+  }
+
+  .theme-panel.opening {
+    animation: panelSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .theme-panel.closing {
+    animation: panelSlideDown 0.3s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+  }
+
   .theme-panel h3 {
     text-align: center;
     font-size: 17px;
@@ -922,6 +935,79 @@
   <div class="footer">
     <span id="countLabel">0 项待完成</span>
     <button class="clear-btn" id="clearCompleted">清除已完成</button>
+  </div>
+</div>
+
+<!-- 主题面板 -->
+<div class="theme-overlay" id="themeOverlay" style="display:none">
+  <div class="theme-panel" id="themePanel">
+    <h3>自定义主题</h3>
+
+    <div class="section-label">预设主题</div>
+    <div class="preset-grid" id="presetGrid">
+      <div class="preset-item active" data-preset="purple">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7)"></div>
+        <span class="preset-name">紫罗兰</span>
+      </div>
+      <div class="preset-item" data-preset="ocean">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#74b9ff,#0984e3)"></div>
+        <span class="preset-name">海洋蓝</span>
+      </div>
+      <div class="preset-item" data-preset="sunset">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#fab1a0,#e17055)"></div>
+        <span class="preset-name">日落橙</span>
+      </div>
+      <div class="preset-item" data-preset="forest">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#a8e6cf,#55a177)"></div>
+        <span class="preset-name">森林绿</span>
+      </div>
+      <div class="preset-item" data-preset="dark">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#636e72,#2d3436)"></div>
+        <span class="preset-name">暗夜灰</span>
+      </div>
+      <div class="preset-item" data-preset="pink">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#fd79a8,#e84393)"></div>
+        <span class="preset-name">樱花粉</span>
+      </div>
+      <div class="preset-item" data-preset="warm">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#ffeaa7,#fdcb6e)"></div>
+        <span class="preset-name">暖阳黄</span>
+      </div>
+      <div class="preset-item" data-preset="mint">
+        <div class="preset-circle" style="background:linear-gradient(135deg,#81ecec,#00cec9)"></div>
+        <span class="preset-name">薄荷青</span>
+      </div>
+    </div>
+
+    <div class="section-label">自定义颜色</div>
+    <div class="color-row">
+      <label>背景色1</label>
+      <input type="color" id="colorBg1" value="#e8e0f0">
+      <span style="font-size:12px;color:#999">左上渐变</span>
+    </div>
+    <div class="color-row">
+      <label>背景色2</label>
+      <input type="color" id="colorBg2" value="#dfe6fd">
+    </div>
+    <div class="color-row">
+      <label>背景色3</label>
+      <input type="color" id="colorBg3" value="#e0f0f8">
+    </div>
+    <div class="color-row">
+      <label>背景色4</label>
+      <input type="color" id="colorBg4" value="#f0e6f6">
+      <span style="font-size:12px;color:#999">右下渐变</span>
+    </div>
+    <div class="color-row">
+      <label>强调色</label>
+      <input type="color" id="colorAccent" value="#6c5ce7">
+      <span style="font-size:12px;color:#666">按钮、选中等</span>
+    </div>
+
+    <div class="theme-actions">
+      <button class="btn-reset" id="btnReset">恢复默认</button>
+      <button class="btn-close" id="btnCloseTheme">完成</button>
+    </div>
   </div>
 </div>
 
@@ -1340,6 +1426,7 @@
   // DOM
   const settingsBtn   = document.getElementById('settingsBtn');
   const themeOverlay  = document.getElementById('themeOverlay');
+  const themePanel    = document.getElementById('themePanel');
   const btnCloseTheme = document.getElementById('btnCloseTheme');
   const btnReset      = document.getElementById('btnReset');
   const presetGrid    = document.getElementById('presetGrid');
@@ -1422,17 +1509,34 @@
     saveTheme();
   }
 
-  // 事件
-  settingsBtn.addEventListener('click', () => {
+  // 打开/关闭面板
+  function openThemePanel() {
     themeOverlay.style.display = 'flex';
-  });
+    themePanel.classList.remove('closing');
+    themePanel.classList.add('opening');
+  }
 
-  btnCloseTheme.addEventListener('click', () => {
-    themeOverlay.style.display = 'none';
-  });
+  function closeThemePanel() {
+    themePanel.classList.add('closing');
+    themePanel.addEventListener('animationend', function handler() {
+      themePanel.removeEventListener('animationend', handler);
+      themeOverlay.style.display = 'none';
+      themePanel.classList.remove('closing');
+    }, { once: true });
+  }
+
+  settingsBtn.addEventListener('click', openThemePanel);
+
+  btnCloseTheme.addEventListener('click', closeThemePanel);
 
   themeOverlay.addEventListener('click', (e) => {
-    if (e.target === themeOverlay) themeOverlay.style.display = 'none';
+    if (e.target === themeOverlay) closeThemePanel();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && themeOverlay.style.display === 'flex') {
+      closeThemePanel();
+    }
   });
 
   btnReset.addEventListener('click', () => {
@@ -1451,6 +1555,7 @@
       currentTheme = { name, ...PRESETS[name] };
       applyTheme(currentTheme);
       saveTheme();
+      showToast('主题已切换');
     }
   });
 
@@ -1463,79 +1568,6 @@
   loadTheme();
   applyTheme(currentTheme);
 </script>
-
-<!-- 主题面板 -->
-<div class="theme-overlay" id="themeOverlay" style="display:none">
-  <div class="theme-panel">
-    <h3>自定义主题</h3>
-
-    <div class="section-label">预设主题</div>
-    <div class="preset-grid" id="presetGrid">
-      <div class="preset-item active" data-preset="purple">
-        <div class="preset-circle" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7)"></div>
-        <span class="preset-name">紫罗兰</span>
-      </div>
-      <div class="preset-item" data-preset="ocean">
-        <div class="preset-circle" style="background:linear-gradient(135deg,#74b9ff,#0984e3)"></div>
-        <span class="preset-name">海洋蓝</span>
-      </div>
-      <div class="preset-item" data-preset="sunset">
-        <div class="preset-circle" style="background:linear-gradient(135deg,#fab1a0,#e17055)"></div>
-        <span class="preset-name">日落橙</span>
-      </div>
-      <div class="preset-item" data-preset="forest">
-        <div class="preset-circle" style="background:linear-gradient(135deg,#a8e6cf,#55a177)"></div>
-        <span class="preset-name">森林绿</span>
-      </div>
-      <div class="preset-item" data-preset="dark">
-        <div class="preset-circle" style="background:linear-gradient(135deg,#636e72,#2d3436)"></div>
-        <span class="preset-name">暗夜灰</span>
-      </div>
-      <div class="preset-item" data-preset="pink">
-        <div class="preset-circle" style="background:linear-gradient(135deg,#fd79a8,#e84393)"></div>
-        <span class="preset-name">樱花粉</span>
-      </div>
-      <div class="preset-item" data-preset="warm">
-        <div class="preset-circle" style="background:linear-gradient(135deg,#ffeaa7,#fdcb6e)"></div>
-        <span class="preset-name">暖阳黄</span>
-      </div>
-      <div class="preset-item" data-preset="mint">
-        <div class="preset-circle" style="background:linear-gradient(135deg,#81ecec,#00cec9)"></div>
-        <span class="preset-name">薄荷青</span>
-      </div>
-    </div>
-
-    <div class="section-label">自定义颜色</div>
-    <div class="color-row">
-      <label>背景色1</label>
-      <input type="color" id="colorBg1" value="#e8e0f0">
-      <span style="font-size:12px;color:#999">左上渐变</span>
-    </div>
-    <div class="color-row">
-      <label>背景色2</label>
-      <input type="color" id="colorBg2" value="#dfe6fd">
-    </div>
-    <div class="color-row">
-      <label>背景色3</label>
-      <input type="color" id="colorBg3" value="#e0f0f8">
-    </div>
-    <div class="color-row">
-      <label>背景色4</label>
-      <input type="color" id="colorBg4" value="#f0e6f6">
-      <span style="font-size:12px;color:#999">右下渐变</span>
-    </div>
-    <div class="color-row">
-      <label>强调色</label>
-      <input type="color" id="colorAccent" value="#6c5ce7">
-      <span style="font-size:12px;color:#666">按钮、选中等</span>
-    </div>
-
-    <div class="theme-actions">
-      <button class="btn-reset" id="btnReset">恢复默认</button>
-      <button class="btn-close" id="btnCloseTheme">完成</button>
-    </div>
-  </div>
-</div>
 
 </body>
 </html>
