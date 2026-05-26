@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Todo</title>
+<style>
+  :root {
+    --accent: #6c5ce7;
+    --accent-light: #a29bfe;
+    --accent-glow: rgba(108, 92, 231, 0.3);
+    --danger: #ff6b6b;
+    --danger-glow: rgba(255, 107, 107, 0.25);
+    --success: #00d2a0;
+    --success-glow: rgba(0, 210, 160, 0.3);
+    --warning: #feca57;
+    --card-bg: rgba(255, 255, 255, 0.85);
+    --card-border: rgba(255, 255, 255, 0.6);
+    --text: #2d3436;
+    --text-secondary: #888;
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 16px 60px;
+    background: linear-gradient(135deg, #e8e0f0 0%, #dfe6fd 30%, #e0f0f8 60%, #f0e6f6 100%);
+    overflow-x: hidden;
+  }
+
+  /* ---- 动态背景 ---- */
+  .bg-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+  .bg-orb:nth-child(1) {
+    width: 300px; height: 300px;
+    background: #a29bfe;
+    top: -80px; right: -60px;
+    animation: orbFloat1 10s infinite alternate;
+  }
+  .bg-orb:nth-child(2) {
+    width: 220px; height: 220px;
+    background: #81ecec;
+    bottom: 10%; left: -80px;
+    animation: orbFloat2 12s infinite alternate;
+  }
+  .bg-orb:nth-child(3) {
+    width: 250px; height: 250px;
+    background: #fdceb9;
+    bottom: -60px; right: 20%;
+    animation: orbFloat3 9s infinite alternate;
+  }
+
+  @keyframes orbFloat1 {
+    0%   { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(-40px, 30px) scale(1.15); }
+  }
+  @keyframes orbFloat2 {
+    0%   { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(50px, -25px) scale(1.1); }
+  }
+  @keyframes orbFloat3 {
+    0%   { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(-30px, -40px) scale(1.2); }
+  }
+
+  /* ---- 主容器 ---- */
+  .app {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* ---- 头部 ---- */
+  .header {
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  .header h1 {
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .header .date {
+    font-size: 13px;
+    color: #999;
+    margin-top: 2px;
+  }
+
+  /* ---- 进度环 ---- */
+  .progress-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+
+  .progress-ring {
+    position: relative;
+    width: 56px; height: 56px;
+    flex-shrink: 0;
+  }
+
+  .progress-ring svg {
+    transform: rotate(-90deg);
+  }
+
+  .progress-ring .bg-circle {
+    fill: none;
+    stroke: #e8e8e8;
+    stroke-width: 5;
+  }
+
+  .progress-ring .fg-circle {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 5;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .progress-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .progress-label {
+    font-size: 13px;
+    color: #999;
+    line-height: 1.4;
+  }
+
+  .progress-label b {
+    color: var(--accent);
+    font-size: 15px;
+  }
+
+  /* ---- 输入区 ---- */
+  .input-row {
+    display: flex;
+    gap: 10px;
+    background: var(--card-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 6px;
+    box-shadow: 0 4px 24px rgba(108, 92, 231, 0.08);
+    transition: box-shadow 0.3s;
+  }
+
+  .input-row:focus-within {
+    box-shadow: 0 4px 28px var(--accent-glow), 0 0 0 3px var(--accent-glow);
+  }
+
+  .input-row input {
+    flex: 1;
+    padding: 12px 14px;
+    border: none;
+    background: transparent;
+    font-size: 15px;
+    outline: none;
+    color: var(--text);
+  }
+
+  .input-row input::placeholder {
+    color: #bbb;
+  }
+
+  .input-row .add-btn {
+    padding: 12px 22px;
+    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+    color: #fff;
+    border: none;
+    border-radius: 11px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .input-row .add-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px var(--accent-glow);
+  }
+
+  .input-row .add-btn:active {
+    transform: scale(0.95);
+    transition: transform 0.1s;
+  }
+
+  /* Ripple */
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    transform: scale(0);
+    animation: rippleAnim 0.6s ease-out forwards;
+    pointer-events: none;
+  }
+
+  @keyframes rippleAnim {
+    to { transform: scale(4); opacity: 0; }
+  }
+
+  /* ---- 筛选栏 ---- */
+  .filter-bar {
+    display: flex;
+    gap: 6px;
+    background: var(--card-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 5px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+  }
+
+  .filter-bar button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    border-radius: 11px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .filter-bar button:hover {
+    color: var(--accent);
+    background: rgba(108, 92, 231, 0.06);
+  }
+
+  .filter-bar button.active {
+    color: #fff;
+    background: var(--accent);
+    box-shadow: 0 4px 12px var(--accent-glow);
+    animation: filterPop 0.3s ease;
+  }
+
+  .filter-bar .badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.3);
+    color: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 10px;
+    margin-left: 4px;
+    min-width: 20px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+
+  .filter-bar button.active .badge {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  @keyframes filterPop {
+    0%   { transform: scale(0.9); }
+    50%  { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+
+  /* ---- 列表 ---- */
+  .todo-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 120px;
+  }
+
+  .todo-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border);
+    padding: 15px 16px;
+    border-radius: var(--radius);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    animation: itemSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .todo-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  }
+
+  .todo-item.removing {
+    animation: itemSlideOut 0.35s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+  }
+
+  .todo-item.completing {
+    animation: celebratePulse 0.5s ease;
+  }
+
+  @keyframes itemSlideIn {
+    from { opacity: 0; transform: translateY(-16px) scale(0.92); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @keyframes itemSlideOut {
+    to { opacity: 0; transform: translateX(60px) scale(0.9); max-height: 0; padding: 0; margin: 0; border-width: 0; }
+  }
+
+  @keyframes celebratePulse {
+    0%   { background: var(--card-bg); transform: scale(1); }
+    30%  { background: rgba(0, 210, 160, 0.15); transform: scale(1.03); }
+    100% { background: var(--card-bg); transform: scale(1); }
+  }
+
+  /* Checkbox */
+  .todo-checkbox {
+    appearance: none;
+    width: 24px; height: 24px;
+    border: 2px solid #d0d0e0;
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .todo-checkbox:hover {
+    border-color: var(--accent-light);
+    box-shadow: 0 0 0 4px var(--accent-glow);
+  }
+
+  .todo-checkbox:checked {
+    background: var(--success);
+    border-color: var(--success);
+    animation: checkBounce 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes checkBounce {
+    0%   { transform: scale(1); }
+    30%  { transform: scale(0.7); }
+    60%  { transform: scale(1.25); }
+    100% { transform: scale(1); }
+  }
+
+  .todo-checkbox:checked::after {
+    content: "";
+    width: 6px; height: 11px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) translateY(-1px);
+    animation: checkDraw 0.3s ease 0.1s both;
+  }
+
+  @keyframes checkDraw {
+    from { clip-path: inset(0 100% 0 0); }
+    to   { clip-path: inset(0 0 0 0); }
+  }
+
+  /* 文字 */
+  .todo-text {
+    flex: 1;
+    font-size: 15px;
+    color: var(--text);
+    word-break: break-word;
+    cursor: pointer;
+    transition: all 0.3s;
+    padding: 2px 0;
+  }
+
+  .todo-item.completed .todo-text {
+    text-decoration: line-through;
+    color: #bbb;
+  }
+
+  /* 编辑输入 */
+  .todo-item .edit-input {
+    flex: 1;
+    font-size: 15px;
+    padding: 6px 10px;
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    outline: none;
+    background: #fff;
+    box-shadow: 0 0 0 4px var(--accent-glow);
+    animation: editFocus 0.2s ease;
+  }
+
+  @keyframes editFocus {
+    from { transform: scale(0.97); opacity: 0.5; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+
+  /* 时间戳 */
+  .todo-time {
+    font-size: 11px;
+    color: #ccc;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .todo-item.completed .todo-time {
+    color: #ddd;
+  }
+
+  /* 删除按钮 */
+  .todo-delete {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.25s;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  .todo-delete svg {
+    width: 16px; height: 16px;
+    pointer-events: none;
+    transition: all 0.25s;
+  }
+
+  .todo-delete:hover {
+    background: var(--danger);
+    color: #fff;
+    box-shadow: 0 4px 14px var(--danger-glow);
+    transform: rotate(90deg);
+  }
+
+  .todo-delete:active {
+    transform: rotate(90deg) scale(0.85);
+    transition: transform 0.1s;
+  }
+
+  /* ---- 空状态 ---- */
+  .empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    animation: emptyFadeIn 0.5s ease;
+  }
+
+  @keyframes emptyFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .empty-icon {
+    font-size: 56px;
+    display: block;
+    margin-bottom: 14px;
+    animation: emptyBounce 2s ease-in-out infinite;
+  }
+
+  @keyframes emptyBounce {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-12px); }
+  }
+
+  .empty-state p {
+    color: #bbb;
+    font-size: 14px;
+  }
+
+  /* ---- 底部栏 ---- */
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 6px;
+    font-size: 13px;
+    color: #999;
+  }
+
+  .clear-btn {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 20px;
+    transition: all 0.3s;
+  }
+
+  .clear-btn:hover {
+    background: var(--danger);
+    color: #fff;
+    box-shadow: 0 4px 14px var(--danger-glow);
+  }
+
+  .clear-btn:active {
+    transform: scale(0.93);
+    transition: transform 0.1s;
+  }
+
+  /* ---- 粒子容器 ---- */
+  .particles-container {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  .particle {
+    position: absolute;
+    font-size: 18px;
+    animation: particleFly 0.9s ease-out forwards;
+    pointer-events: none;
+  }
+
+  @keyframes particleFly {
+    0%   { opacity: 1; transform: translate(0, 0) scale(0.5) rotate(0deg); }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.2) rotate(var(--rot)); }
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2d3436;
+    color: #fff;
+    padding: 10px 22px;
+    border-radius: 24px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 1000;
+    animation: toastIn 0.4s cubic-bezier(0.16, 1, 0.3, 1), toastOut 0.3s ease 1.8s forwards;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
+  }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.9); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  }
+
+  @keyframes toastOut {
+    to { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(0.9); }
+  }
+
+  /* ---- 响应式 ---- */
+  @media (max-width: 400px) {
+    .todo-time { display: none; }
+    .header h1 { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-orb"></div>
+<div class="bg-orb"></div>
+<div class="bg-orb"></div>
+<div class="particles-container" id="particles"></div>
+
+<div class="app">
+  <div class="header">
+    <h1>Todo</h1>
+    <div class="date" id="dateLabel"></div>
+  </div>
+
+  <div class="progress-section" id="progressSection">
+    <div class="progress-ring">
+      <svg width="56" height="56" viewBox="0 0 56 56">
+        <circle class="bg-circle" cx="28" cy="28" r="24"/>
+        <circle class="fg-circle" id="progressCircle" cx="28" cy="28" r="24"
+                stroke-dasharray="150.8" stroke-dashoffset="150.8"/>
+      </svg>
+      <span class="progress-text" id="progressPercent">0%</span>
+    </div>
+    <div class="progress-label">
+      已完成 <b id="doneCount">0</b> / <span id="totalCount">0</span>
+    </div>
+  </div>
+
+  <div class="input-row">
+    <input id="todoInput" type="text" placeholder="写下要做的事情..." maxlength="200">
+    <button class="add-btn" id="addBtn">添加</button>
+  </div>
+
+  <div class="filter-bar">
+    <button class="active" data-filter="all">全部<span class="badge" id="badgeAll">0</span></button>
+    <button data-filter="active">待完成<span class="badge" id="badgeActive">0</span></button>
+    <button data-filter="completed">已完成<span class="badge" id="badgeDone">0</span></button>
+  </div>
+
+  <div id="todoList" class="todo-list"></div>
+
+  <div class="footer">
+    <span id="countLabel">0 项待完成</span>
+    <button class="clear-btn" id="clearCompleted">清除已完成</button>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'todo_app_v2';
+  const CIRCUMFERENCE = 2 * Math.PI * 24; // ~150.8
+
+  let todos = [];
+  let currentFilter = 'all';
+
+  // DOM
+  const todoInput      = document.getElementById('todoInput');
+  const addBtn         = document.getElementById('addBtn');
+  const todoList       = document.getElementById('todoList');
+  const countLabel     = document.getElementById('countLabel');
+  const clearBtn       = document.getElementById('clearCompleted');
+  const filterBtns     = document.querySelectorAll('.filter-bar button');
+  const progressCircle = document.getElementById('progressCircle');
+  const progressPercent= document.getElementById('progressPercent');
+  const doneCount      = document.getElementById('doneCount');
+  const totalCount     = document.getElementById('totalCount');
+  const badgeAll       = document.getElementById('badgeAll');
+  const badgeActive    = document.getElementById('badgeActive');
+  const badgeDone      = document.getElementById('badgeDone');
+  const particlesEl    = document.getElementById('particles');
+  const dateLabel      = document.getElementById('dateLabel');
+  const progressSection= document.getElementById('progressSection');
+
+  // 日期
+  function updateDate() {
+    const now = new Date();
+    const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+    dateLabel.textContent =
+      `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · 星期${weekdays[now.getDay()]}`;
+  }
+  updateDate();
+
+  // 持久化
+  function loadTodos() {
+    try { todos = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch { todos = []; }
+  }
+
+  function saveTodos() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+  }
+
+  // 粒子特效
+  const PARTICLE_EMOJIS = ['✨', '🌟', '💫', '🎉', '💜', '💚', '⭐', '🔥'];
+
+  function spawnParticles(x, y, count = 10) {
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('span');
+      p.className = 'particle';
+      p.textContent = PARTICLE_EMOJIS[Math.floor(Math.random() * PARTICLE_EMOJIS.length)];
+      p.style.left = x + 'px';
+      p.style.top = y + 'px';
+      p.style.setProperty('--dx', (Math.random() - 0.5) * 180 + 'px');
+      p.style.setProperty('--dy', (Math.random() * -120 - 20) + 'px');
+      p.style.setProperty('--rot', (Math.random() - 0.5) * 400 + 'deg');
+      p.style.animationDuration = (0.6 + Math.random() * 0.8) + 's';
+      particlesEl.appendChild(p);
+      p.addEventListener('animationend', () => p.remove());
+    }
+  }
+
+  // Toast
+  function showToast(msg) {
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    t.addEventListener('animationend', (e) => {
+      if (e.animationName === 'toastOut') t.remove();
+    });
+  }
+
+  // Ripple
+  function addRipple(e) {
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    ripple.style.width = ripple.style.height = size + 'px';
+    ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+    ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+    btn.appendChild(ripple);
+    ripple.addEventListener('animationend', () => ripple.remove());
+  }
+
+  // 更新进度
+  function updateProgress() {
+    const total = todos.length;
+    const done = todos.filter(t => t.done).length;
+    const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+
+    progressCircle.style.strokeDashoffset = CIRCUMFERENCE - (pct / 100) * CIRCUMFERENCE;
+    progressPercent.textContent = pct + '%';
+    doneCount.textContent = done;
+    totalCount.textContent = total;
+
+    // 颜色渐变
+    if (pct === 100 && total > 0) {
+      progressCircle.style.stroke = '#00d2a0';
+      progressPercent.style.color = '#00d2a0';
+    } else {
+      progressCircle.style.stroke = 'var(--accent)';
+      progressPercent.style.color = 'var(--accent)';
+    }
+
+    // Badge 计数
+    badgeAll.textContent = total;
+    badgeActive.textContent = total - done;
+    badgeDone.textContent = done;
+  }
+
+  // 渲染
+  function render() {
+    const filtered = todos.filter(t => {
+      if (currentFilter === 'active')    return !t.done;
+      if (currentFilter === 'completed') return t.done;
+      return true;
+    });
+
+    todoList.innerHTML = '';
+
+    if (filtered.length === 0) {
+      const msg = todos.length === 0 ? '还没有任务，添加一个吧 ✍️' : '没有匹配的任务 🔍';
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'empty-state';
+      emptyDiv.innerHTML = `<span class="empty-icon">${todos.length === 0 ? '📋' : '🔍'}</span><p>${msg}</p>`;
+      todoList.appendChild(emptyDiv);
+    }
+
+    filtered.forEach((todo, idx) => {
+      const el = document.createElement('div');
+      el.className = 'todo-item' + (todo.done ? ' completed' : '');
+      el.style.animationDelay = (idx * 0.04) + 's';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'todo-checkbox';
+      checkbox.checked = todo.done;
+      checkbox.addEventListener('change', (e) => {
+        toggleTodo(todo.id);
+        if (checkbox.checked) {
+          const rect = el.getBoundingClientRect();
+          spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, 8);
+        }
+      });
+
+      const text = document.createElement('span');
+      text.className = 'todo-text';
+      text.textContent = todo.text;
+      text.title = '双击编辑';
+      text.addEventListener('dblclick', () => startEdit(todo.id, el, text));
+
+      const time = document.createElement('span');
+      time.className = 'todo-time';
+      time.textContent = formatTime(todo.id);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'todo-delete';
+      delBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>`;
+      delBtn.title = '删除';
+      delBtn.addEventListener('click', () => deleteTodo(todo.id, el));
+
+      el.append(checkbox, text, time, delBtn);
+      todoList.appendChild(el);
+    });
+
+    const activeCount = todos.filter(t => !t.done).length;
+    countLabel.textContent = activeCount + ' 项待完成';
+    clearBtn.style.visibility = todos.some(t => t.done) ? 'visible' : 'hidden';
+
+    updateProgress();
+  }
+
+  function formatTime(ts) {
+    const d = new Date(ts);
+    const h = d.getHours().toString().padStart(2, '0');
+    const m = d.getMinutes().toString().padStart(2, '0');
+    return h + ':' + m;
+  }
+
+  // 操作
+  function addTodo() {
+    const text = todoInput.value.trim();
+    if (!text) {
+      todoInput.style.animation = 'none';
+      todoInput.offsetHeight; // reflow
+      todoInput.style.animation = 'shake 0.4s ease';
+      return;
+    }
+
+    todos.unshift({ id: Date.now(), text, done: false });
+    saveTodos();
+    todoInput.value = '';
+    todoInput.focus();
+    render();
+
+    const firstItem = todoList.querySelector('.todo-item');
+    if (firstItem) {
+      const rect = firstItem.getBoundingClientRect();
+      spawnParticles(rect.left + 40, rect.top + 20, 6);
+    }
+  }
+
+  function toggleTodo(id) {
+    const todo = todos.find(t => t.id === id);
+    if (todo) {
+      todo.done = !todo.done;
+      saveTodos();
+      render();
+
+      if (todo.done && todos.every(t => t.done)) {
+        setTimeout(() => showToast('🎉 全部完成！太棒了！'), 400);
+      }
+    }
+  }
+
+  function deleteTodo(id, el) {
+    el.classList.add('removing');
+    el.addEventListener('animationend', () => {
+      todos = todos.filter(t => t.id !== id);
+      saveTodos();
+      render();
+    }, { once: true });
+  }
+
+  function clearCompleted() {
+    const doneItems = todos.filter(t => t.done);
+    if (doneItems.length === 0) return;
+
+    const items = todoList.querySelectorAll('.todo-item.completed');
+    items.forEach(el => el.classList.add('removing'));
+
+    const lastItem = items[items.length - 1] || items[0];
+    if (lastItem) {
+      lastItem.addEventListener('animationend', () => {
+        todos = todos.filter(t => !t.done);
+        saveTodos();
+        render();
+        showToast(`已清除 ${doneItems.length} 项已完成任务`);
+      }, { once: true });
+    }
+  }
+
+  function startEdit(id, el, textSpan) {
+    const todo = todos.find(t => t.id === id);
+    if (!todo) return;
+
+    const prevTime = el.querySelector('.todo-time');
+    const prevDelete = el.querySelector('.todo-delete');
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'edit-input';
+    input.value = todo.text;
+
+    el.replaceChild(input, textSpan);
+    if (prevTime) prevTime.style.display = 'none';
+    if (prevDelete) prevDelete.style.display = 'none';
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+
+    const finish = () => {
+      const newText = input.value.trim();
+      if (newText && newText !== todo.text) {
+        todo.text = newText;
+        saveTodos();
+      }
+      render();
+    };
+
+    input.addEventListener('blur', finish);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') finish();
+      if (e.key === 'Escape') render();
+    });
+  }
+
+  function setFilter(filter) {
+    currentFilter = filter;
+    filterBtns.forEach(b => b.classList.toggle('active', b.dataset.filter === filter));
+    render();
+  }
+
+  // 事件绑定
+  addBtn.addEventListener('click', (e) => { addRipple(e); addTodo(); });
+  addBtn.addEventListener('mousedown', addRipple);
+  todoInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') addTodo();
+  });
+  clearBtn.addEventListener('click', clearCompleted);
+  filterBtns.forEach(b => {
+    b.addEventListener('click', () => setFilter(b.dataset.filter));
+  });
+
+  // Shake keyframes (injected)
+  const shakeStyle = document.createElement('style');
+  shakeStyle.textContent = `
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%      { transform: translateX(-8px); }
+      40%      { transform: translateX(8px); }
+      60%      { transform: translateX(-6px); }
+      80%      { transform: translateX(4px); }
+    }
+  `;
+  document.head.appendChild(shakeStyle);
+
+  // 启动
+  loadTodos();
+  render();
+</script>
+
+</body>
+</html>
